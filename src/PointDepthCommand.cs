@@ -32,6 +32,8 @@ public sealed class PointDepthCommand
     private const string LegacyClassificationName = "PointDepth";
     private const string UnclassifiedClassificationName = "Unclassified";
     private const string UdpName = "Depth_To_Surface";
+    private const string PositivePointGroupName = "PointDepth_Positive";
+    private const string NegativePointGroupName = "PointDepth_Negative";
     private const int MaxSkippedDetails = 12;
 
     [CommandMethod(CommandName, CommandFlags.Modal)]
@@ -90,6 +92,8 @@ public sealed class PointDepthCommand
                 int outsideSurface = 0;
                 int failed = 0;
                 List<string> skippedDetails = new();
+                PointGroupSignCounts? signCounts = null;
+                string? pointGroupWarning = null;
 
                 foreach (uint pointNumber in pointNumbers)
                 {
@@ -115,6 +119,15 @@ public sealed class PointDepthCommand
                     }
                 }
 
+                try
+                {
+                    signCounts = CreateOrUpdateDepthSignPointGroups(civilDocument, transaction);
+                }
+                catch (System.Exception ex)
+                {
+                    pointGroupWarning = ex.Message;
+                }
+
                 transaction.Commit();
 
                 editor.WriteMessage(
@@ -125,6 +138,22 @@ public sealed class PointDepthCommand
                         UdpName,
                         pointGroup.Name,
                         surface.Name));
+                if (signCounts is not null)
+                {
+                    editor.WriteMessage(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "\nPointDepth updated point groups: \"{0}\" ({1} point(s)) and \"{2}\" ({3} point(s)).",
+                            PositivePointGroupName,
+                            signCounts.PositiveCount,
+                            NegativePointGroupName,
+                            signCounts.NegativeCount));
+                }
+                else
+                {
+                    editor.WriteMessage(
+                        $"\nPointDepth wrote depth values, but could not update sign point groups: {pointGroupWarning}");
+                }
 
                 int skipped = outsideSurface + failed;
                 if (skipped > 0)
@@ -273,6 +302,50 @@ public sealed class PointDepthCommand
         return civilDocument.PointUDPClassifications.Add(UnclassifiedClassificationName);
     }
 
+    private static PointGroupSignCounts CreateOrUpdateDepthSignPointGroups(
+        CivilDocument civilDocument,
+        Transaction transaction)
+    {
+        PointGroup positivePointGroup = GetOrCreatePointGroup(
+            civilDocument,
+            transaction,
+            PositivePointGroupName);
+        SetCustomQuery(positivePointGroup, $"{UdpName}>0");
+
+        PointGroup negativePointGroup = GetOrCreatePointGroup(
+            civilDocument,
+            transaction,
+            NegativePointGroupName);
+        SetCustomQuery(negativePointGroup, $"{UdpName}<0");
+
+        return new PointGroupSignCounts(
+            positivePointGroup.PointsCount,
+            negativePointGroup.PointsCount);
+    }
+
+    private static PointGroup GetOrCreatePointGroup(
+        CivilDocument civilDocument,
+        Transaction transaction,
+        string pointGroupName)
+    {
+        ObjectId pointGroupId = civilDocument.PointGroups.Contains(pointGroupName)
+            ? civilDocument.PointGroups[pointGroupName]
+            : civilDocument.PointGroups.Add(pointGroupName);
+
+        return (PointGroup)transaction.GetObject(pointGroupId, OpenMode.ForWrite);
+    }
+
+    private static void SetCustomQuery(PointGroup pointGroup, string queryString)
+    {
+        CustomPointGroupQuery query = new()
+        {
+            QueryString = queryString
+        };
+
+        pointGroup.SetQuery(query);
+        pointGroup.Update();
+    }
+
     private static void ReleaseLegacyClassification(PointGroup pointGroup, CivilDocument civilDocument)
     {
         if (pointGroup.UDPClassificationApplyType == UDPClassificationApplyType.Custom &&
@@ -318,4 +391,6 @@ public sealed class PointDepthCommand
     }
 
     private sealed record PointGroupChoice(int Number, string Name, uint PointCount, ObjectId ObjectId);
+
+    private sealed record PointGroupSignCounts(uint PositiveCount, uint NegativeCount);
 }
