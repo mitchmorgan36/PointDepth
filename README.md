@@ -16,10 +16,12 @@ The sign convention is:
 4. Select an existing point group from the numbered command-line prompt.
 5. Select the existing surface to compare against.
 
-PointDepth creates a numeric `Depth_To_Surface` UDP when needed. Existing numeric `Depth_To_Surface` UDPs are reused. After writing depths, PointDepth creates or updates two custom-query point groups:
+PointDepth creates a numeric `Depth_To_Surface` UDP when needed. Existing numeric `Depth_To_Surface` UDPs are reused. After writing depths, PointDepth creates or updates two sign point groups:
 
 - `PointDepth_Positive`: points where `Depth_To_Surface > 0`
 - `PointDepth_Negative`: points where `Depth_To_Surface < 0`
+
+PointDepth first attempts to define those groups with Civil 3D custom queries against the `Depth_To_Surface` UDP. If Civil 3D rejects the UDP query through the .NET API, PointDepth rolls that group update back and populates the groups with point-number include queries based on the depths written in the current run.
 
 Points outside the selected surface are skipped and reported at the command line.
 
