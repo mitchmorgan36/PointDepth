@@ -58,7 +58,14 @@ public sealed class PointDepthCommand
             return;
         }
 
-        ObjectId surfaceId = PromptForSurface(editor);
+        IReadOnlyList<SurfaceChoice> surfaces = GetSurfaces(civilDocument, database);
+        if (surfaces.Count == 0)
+        {
+            editor.WriteMessage("\nPointDepth found no Civil 3D surfaces in this drawing.");
+            return;
+        }
+
+        ObjectId surfaceId = PromptForSurface(editor, surfaces);
         if (surfaceId == ObjectId.Null)
         {
             editor.WriteMessage("\nPointDepth canceled.");
@@ -248,14 +255,65 @@ public sealed class PointDepthCommand
         return pointGroups.First(group => group.Number == result.Value);
     }
 
-    private static ObjectId PromptForSurface(Editor editor)
+    private static IReadOnlyList<SurfaceChoice> GetSurfaces(CivilDocument civilDocument, Database database)
     {
-        PromptEntityOptions options = new("\nSelect surface to compare point elevations against: ");
+        List<SurfaceChoice> surfaces = new();
+
+        using Transaction transaction = database.TransactionManager.StartTransaction();
+        int number = 1;
+        foreach (ObjectId surfaceId in civilDocument.GetSurfaceIds())
+        {
+            CivSurface surface = (CivSurface)transaction.GetObject(surfaceId, OpenMode.ForRead);
+            surfaces.Add(new SurfaceChoice(number, surface.Name, surface.GetType().Name, surfaceId));
+            number++;
+        }
+
+        transaction.Commit();
+        return surfaces
+            .OrderBy(surface => surface.Name, StringComparer.OrdinalIgnoreCase)
+            .Select((surface, index) => surface with { Number = index + 1 })
+            .ToList();
+    }
+
+    private static ObjectId PromptForSurface(Editor editor, IReadOnlyList<SurfaceChoice> surfaces)
+    {
+        editor.WriteMessage("\nPointDepth surfaces:");
+        foreach (SurfaceChoice surface in surfaces)
+        {
+            editor.WriteMessage(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "\n  {0}. {1} ({2})",
+                    surface.Number,
+                    surface.Name,
+                    surface.SurfaceType));
+        }
+
+        PromptEntityOptions options = new("\nSelect surface by number or pick surface: ")
+        {
+            AppendKeywordsToMessage = false
+        };
         options.SetRejectMessage("\nSelected object is not a Civil 3D surface.");
         options.AddAllowedClass(typeof(CivSurface), false);
+        foreach (SurfaceChoice surface in surfaces)
+        {
+            options.Keywords.Add(surface.Number.ToString(CultureInfo.InvariantCulture));
+        }
 
         PromptEntityResult result = editor.GetEntity(options);
-        return result.Status == PromptStatus.OK ? result.ObjectId : ObjectId.Null;
+        if (result.Status == PromptStatus.OK)
+        {
+            return result.ObjectId;
+        }
+
+        if (result.Status == PromptStatus.Keyword &&
+            int.TryParse(result.StringResult, NumberStyles.None, CultureInfo.InvariantCulture, out int selectedNumber))
+        {
+            SurfaceChoice? selectedSurface = surfaces.FirstOrDefault(surface => surface.Number == selectedNumber);
+            return selectedSurface?.ObjectId ?? ObjectId.Null;
+        }
+
+        return ObjectId.Null;
     }
 
     private static UDPDouble GetOrCreateDepthUdp(CivilDocument civilDocument)
@@ -534,6 +592,8 @@ public sealed class PointDepthCommand
     }
 
     private sealed record PointGroupChoice(int Number, string Name, uint PointCount, ObjectId ObjectId);
+
+    private sealed record SurfaceChoice(int Number, string Name, string SurfaceType, ObjectId ObjectId);
 
     private sealed class DepthSignPointNumbers
     {

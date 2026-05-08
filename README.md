@@ -14,7 +14,7 @@ The sign convention is:
 2. In Civil 3D 2026, run `NETLOAD` and load the built DLL.
 3. Run `AddPointDepth`.
 4. Select an existing point group from the numbered command-line prompt.
-5. Select the existing surface to compare against.
+5. Select the existing surface to compare against by typing its number or picking it in the drawing.
 
 PointDepth creates a numeric `Depth_To_Surface` UDP when needed. Existing numeric `Depth_To_Surface` UDPs are reused. After writing depths, PointDepth creates or updates two sign point groups:
 
