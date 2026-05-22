@@ -160,6 +160,15 @@ public sealed class PointDepthCommand
                             signCounts.PositiveCount,
                             NegativePointGroupName,
                             signCounts.NegativeCount));
+                    if (signPointNumbers.ZeroCount > 0)
+                    {
+                        editor.WriteMessage(
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                "\nPointDepth found {0} point(s) with {1} equal to 0; these points exactly match the selected surface and are not included in either sign point group.",
+                                signPointNumbers.ZeroCount,
+                                UdpName));
+                    }
                 }
                 else
                 {
@@ -479,10 +488,13 @@ public sealed class PointDepthCommand
     {
         private readonly List<uint> positivePointNumbers = new();
         private readonly List<uint> negativePointNumbers = new();
+        private uint zeroCount;
 
         public IReadOnlyCollection<uint> PositivePointNumbers => positivePointNumbers;
 
         public IReadOnlyCollection<uint> NegativePointNumbers => negativePointNumbers;
+
+        public uint ZeroCount => zeroCount;
 
         public void Add(uint pointNumber, double depthToSurface)
         {
@@ -493,6 +505,10 @@ public sealed class PointDepthCommand
             else if (depthToSurface < 0.0)
             {
                 negativePointNumbers.Add(pointNumber);
+            }
+            else
+            {
+                zeroCount++;
             }
         }
     }

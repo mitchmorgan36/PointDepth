@@ -23,6 +23,8 @@ PointDepth creates a numeric `Depth_To_Surface` UDP under a `PointDepth` user-de
 
 PointDepth populates those groups with point-number include queries based on the depths written in the current run.
 
+Points with `Depth_To_Surface` exactly equal to `0` are reported separately and are not included in either sign point group.
+
 Points outside the selected surface are skipped and reported at the command line.
 
 ## Build
