@@ -18,7 +18,7 @@ public sealed class PointDepthExtension : IExtensionApplication
     public void Initialize()
     {
         Document? document = AcadApplication.DocumentManager.MdiActiveDocument;
-        document?.Editor.WriteMessage("\nPointDepth loaded. Run AddPointDepth to write Depth_To_Surface values.");
+        document?.Editor.WriteMessage("\nPointDepth loaded. Run POINTDEPTH to write Depth_To_Surface values.");
     }
 
     public void Terminate()
@@ -28,7 +28,7 @@ public sealed class PointDepthExtension : IExtensionApplication
 
 public sealed class PointDepthCommand
 {
-    private const string CommandName = "AddPointDepth";
+    private const string CommandName = "POINTDEPTH";
     private const string LegacyClassificationName = "PointDepth";
     private const string UnclassifiedClassificationName = "Unclassified";
     private const string UdpName = "Depth_To_Surface";
@@ -37,7 +37,7 @@ public sealed class PointDepthCommand
     private const int MaxSkippedDetails = 12;
 
     [CommandMethod(CommandName, CommandFlags.Modal)]
-    public void AddPointDepth()
+    public void PointDepth()
     {
         Document document = AcadApplication.DocumentManager.MdiActiveDocument;
         Editor editor = document.Editor;
@@ -162,10 +162,6 @@ public sealed class PointDepthCommand
                             signCounts.PositiveCount,
                             NegativePointGroupName,
                             signCounts.NegativeCount));
-                    if (!string.IsNullOrWhiteSpace(signCounts.Note))
-                    {
-                        editor.WriteMessage($"\n{signCounts.Note}");
-                    }
                 }
                 else
                 {
@@ -376,57 +372,6 @@ public sealed class PointDepthCommand
         CivilDocument civilDocument,
         DepthSignPointNumbers signPointNumbers)
     {
-        try
-        {
-            return CreateOrUpdateDepthSignPointGroupsWithUdpQueries(database, civilDocument);
-        }
-        catch (System.Exception ex)
-        {
-            PointGroupSignCounts signCounts = CreateOrUpdateDepthSignPointGroupsWithPointNumbers(
-                database,
-                civilDocument,
-                signPointNumbers);
-            return signCounts with
-            {
-                Note = $"Civil 3D rejected the {UdpName} custom-query form through the .NET API ({ex.Message}). PointDepth populated the sign groups with point-number include queries instead."
-            };
-        }
-    }
-
-    private static PointGroupSignCounts CreateOrUpdateDepthSignPointGroupsWithUdpQueries(
-        Database database,
-        CivilDocument civilDocument)
-    {
-        using Transaction transaction = database.TransactionManager.StartTransaction();
-
-        UDPClassification udpClassification = GetDepthUdpClassification(civilDocument);
-
-        PointGroup positivePointGroup = GetOrCreatePointGroup(
-            civilDocument,
-            transaction,
-            PositivePointGroupName);
-        SetCustomQuery(positivePointGroup, udpClassification, $"{UdpName}>0");
-
-        PointGroup negativePointGroup = GetOrCreatePointGroup(
-            civilDocument,
-            transaction,
-            NegativePointGroupName);
-        SetCustomQuery(negativePointGroup, udpClassification, $"{UdpName}<0");
-
-        PointGroupSignCounts result = new(
-            positivePointGroup.PointsCount,
-            negativePointGroup.PointsCount,
-            null);
-
-        transaction.Commit();
-        return result;
-    }
-
-    private static PointGroupSignCounts CreateOrUpdateDepthSignPointGroupsWithPointNumbers(
-        Database database,
-        CivilDocument civilDocument,
-        DepthSignPointNumbers signPointNumbers)
-    {
         using Transaction transaction = database.TransactionManager.StartTransaction();
 
         PointGroup positivePointGroup = GetOrCreatePointGroup(
@@ -443,8 +388,7 @@ public sealed class PointDepthCommand
 
         PointGroupSignCounts result = new(
             positivePointGroup.PointsCount,
-            negativePointGroup.PointsCount,
-            null);
+            negativePointGroup.PointsCount);
 
         transaction.Commit();
         return result;
@@ -462,22 +406,6 @@ public sealed class PointDepthCommand
         return (PointGroup)transaction.GetObject(pointGroupId, OpenMode.ForWrite);
     }
 
-    private static void SetCustomQuery(
-        PointGroup pointGroup,
-        UDPClassification udpClassification,
-        string queryString)
-    {
-        pointGroup.UseCustomClassification(udpClassification);
-
-        CustomPointGroupQuery query = new()
-        {
-            QueryString = queryString
-        };
-
-        pointGroup.SetQuery(query);
-        pointGroup.Update();
-    }
-
     private static void SetPointNumberQuery(PointGroup pointGroup, IReadOnlyCollection<uint> pointNumbers)
     {
         StandardPointGroupQuery query = new()
@@ -487,22 +415,6 @@ public sealed class PointDepthCommand
 
         pointGroup.SetQuery(query);
         pointGroup.Update();
-    }
-
-    private static UDPClassification GetDepthUdpClassification(CivilDocument civilDocument)
-    {
-        foreach (UDPClassification classification in civilDocument.PointUDPClassifications)
-        {
-            foreach (UDP udp in classification.UDPs)
-            {
-                if (string.Equals(udp.Name, UdpName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return classification;
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Could not find the {UdpName} UDP classification.");
     }
 
     private static string FormatPointNumberRanges(IEnumerable<uint> pointNumbers)
@@ -617,5 +529,5 @@ public sealed class PointDepthCommand
         }
     }
 
-    private sealed record PointGroupSignCounts(uint PositiveCount, uint NegativeCount, string? Note);
+    private sealed record PointGroupSignCounts(uint PositiveCount, uint NegativeCount);
 }

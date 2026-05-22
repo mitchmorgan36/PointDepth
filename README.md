@@ -12,7 +12,7 @@ The sign convention is:
 
 1. Build `PointDepth.dll`.
 2. In Civil 3D 2026, run `NETLOAD` and load the built DLL.
-3. Run `AddPointDepth`.
+3. Run `POINTDEPTH`.
 4. Select an existing point group from the numbered command-line prompt.
 5. Select the existing surface to compare against by typing its number or picking it in the drawing.
 
@@ -21,7 +21,7 @@ PointDepth creates a numeric `Depth_To_Surface` UDP when needed. Existing numeri
 - `PointDepth_Positive`: points where `Depth_To_Surface > 0`
 - `PointDepth_Negative`: points where `Depth_To_Surface < 0`
 
-PointDepth first attempts to define those groups with Civil 3D custom queries against the `Depth_To_Surface` UDP. If Civil 3D rejects the UDP query through the .NET API, PointDepth rolls that group update back and populates the groups with point-number include queries based on the depths written in the current run.
+PointDepth populates those groups with point-number include queries based on the depths written in the current run.
 
 Points outside the selected surface are skipped and reported at the command line.
 
