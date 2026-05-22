@@ -89,6 +89,7 @@ public sealed class PointDepthCommand
                 }
 
                 UDPDouble depthUdp = GetOrCreateDepthUdp(civilDocument);
+                string depthUdpClassificationName = GetDepthUdpClassificationName(civilDocument, depthUdp);
                 DepthInchesExpressionStatus depthInchesExpressionStatus = DepthInchesExpressionStatus.Unchanged;
                 string? depthInchesExpressionWarning = null;
                 try
@@ -149,7 +150,8 @@ public sealed class PointDepthCommand
                     signCounts = CreateOrUpdateDepthSignPointGroups(
                         database,
                         civilDocument,
-                        signPointNumbers);
+                        signPointNumbers,
+                        depthUdpClassificationName);
                 }
                 catch (System.Exception ex)
                 {
@@ -398,6 +400,27 @@ public sealed class PointDepthCommand
         return civilDocument.PointUDPClassifications.Add(DepthUdpClassificationName);
     }
 
+    private static string GetDepthUdpClassificationName(CivilDocument civilDocument, UDPDouble depthUdp)
+    {
+        foreach (UDPClassification classification in civilDocument.PointUDPClassifications)
+        {
+            if (classification.ContainsUDP(depthUdp))
+            {
+                return classification.Name;
+            }
+
+            foreach (UDP udp in classification.UDPs)
+            {
+                if (string.Equals(udp.Name, depthUdp.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return classification.Name;
+                }
+            }
+        }
+
+        return GetOrCreateDepthUdpClassification(civilDocument).Name;
+    }
+
     private static DepthInchesExpressionStatus GetOrCreateDepthInchesExpression(CivilDocument civilDocument)
     {
         ExpressionCollection expressions = civilDocument
@@ -425,7 +448,8 @@ public sealed class PointDepthCommand
     private static PointGroupSignCounts CreateOrUpdateDepthSignPointGroups(
         Database database,
         CivilDocument civilDocument,
-        DepthSignPointNumbers signPointNumbers)
+        DepthSignPointNumbers signPointNumbers,
+        string depthUdpClassificationName)
     {
         using Transaction transaction = database.TransactionManager.StartTransaction();
 
@@ -433,12 +457,14 @@ public sealed class PointDepthCommand
             civilDocument,
             transaction,
             PositivePointGroupName);
+        UseCustomUdpClassification(positivePointGroup, depthUdpClassificationName);
         SetPointNumberQuery(positivePointGroup, signPointNumbers.PositivePointNumbers);
 
         PointGroup negativePointGroup = GetOrCreatePointGroup(
             civilDocument,
             transaction,
             NegativePointGroupName);
+        UseCustomUdpClassification(negativePointGroup, depthUdpClassificationName);
         SetPointNumberQuery(negativePointGroup, signPointNumbers.NegativePointNumbers);
 
         PointGroupSignCounts result = new(
@@ -459,6 +485,16 @@ public sealed class PointDepthCommand
             : civilDocument.PointGroups.Add(pointGroupName);
 
         return (PointGroup)transaction.GetObject(pointGroupId, OpenMode.ForWrite);
+    }
+
+    private static void UseCustomUdpClassification(PointGroup pointGroup, string udpClassificationName)
+    {
+        if (string.Equals(pointGroup.UDPClassificationName, udpClassificationName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        pointGroup.UseCustomClassification(udpClassificationName);
     }
 
     private static void SetPointNumberQuery(PointGroup pointGroup, IReadOnlyCollection<uint> pointNumbers)

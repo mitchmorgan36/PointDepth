@@ -25,6 +25,8 @@ PointDepth also creates a point label expression named `Depth_To_Surface-INCHES`
 
 PointDepth populates those groups with point-number include queries based on the depths written in the current run.
 
+The generated sign point groups are assigned the UDP classification that contains `Depth_To_Surface`. In drawings where PointDepth creates the UDP, that classification is `PointDepth`. The command does not change the `_All Points` point group classification.
+
 Points with `Depth_To_Surface` exactly equal to `0` are reported separately and are not included in either sign point group.
 
 Points outside the selected surface are skipped and reported at the command line.
