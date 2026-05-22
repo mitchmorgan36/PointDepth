@@ -29,8 +29,7 @@ public sealed class PointDepthExtension : IExtensionApplication
 public sealed class PointDepthCommand
 {
     private const string CommandName = "POINTDEPTH";
-    private const string LegacyClassificationName = "PointDepth";
-    private const string UnclassifiedClassificationName = "Unclassified";
+    private const string DepthUdpClassificationName = "PointDepth";
     private const string UdpName = "Depth_To_Surface";
     private const string PositivePointGroupName = "PointDepth_Positive";
     private const string NegativePointGroupName = "PointDepth_Negative";
@@ -85,7 +84,6 @@ public sealed class PointDepthCommand
                     return;
                 }
 
-                ReleaseLegacyClassification(pointGroup, civilDocument);
                 UDPDouble depthUdp = GetOrCreateDepthUdp(civilDocument);
 
                 uint[] pointNumbers = pointGroup.GetPointNumbers();
@@ -344,27 +342,26 @@ public sealed class PointDepthCommand
             UpperBoundValue = 1.0e9
         };
 
-        UDPClassification unclassified = GetOrCreateUnclassifiedClassification(civilDocument);
-        return unclassified.CreateUDP(typeInfo);
+        UDPClassification pointDepthClassification = GetOrCreateDepthUdpClassification(civilDocument);
+        return pointDepthClassification.CreateUDP(typeInfo);
     }
 
-    private static UDPClassification GetOrCreateUnclassifiedClassification(CivilDocument civilDocument)
+    private static UDPClassification GetOrCreateDepthUdpClassification(CivilDocument civilDocument)
     {
-        if (civilDocument.PointUDPClassifications.Contains(UnclassifiedClassificationName))
+        if (civilDocument.PointUDPClassifications.Contains(DepthUdpClassificationName))
         {
-            return civilDocument.PointUDPClassifications[UnclassifiedClassificationName];
+            return civilDocument.PointUDPClassifications[DepthUdpClassificationName];
         }
 
         foreach (UDPClassification classification in civilDocument.PointUDPClassifications)
         {
-            if (string.IsNullOrWhiteSpace(classification.Name) ||
-                string.Equals(classification.Name, UnclassifiedClassificationName, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(classification.Name, DepthUdpClassificationName, StringComparison.OrdinalIgnoreCase))
             {
                 return classification;
             }
         }
 
-        return civilDocument.PointUDPClassifications.Add(UnclassifiedClassificationName);
+        return civilDocument.PointUDPClassifications.Add(DepthUdpClassificationName);
     }
 
     private static PointGroupSignCounts CreateOrUpdateDepthSignPointGroups(
@@ -457,35 +454,6 @@ public sealed class PointDepthCommand
             : string.Create(
                 CultureInfo.InvariantCulture,
                 $"{start}-{end}");
-    }
-
-    private static void ReleaseLegacyClassification(PointGroup pointGroup, CivilDocument civilDocument)
-    {
-        if (pointGroup.UDPClassificationApplyType == UDPClassificationApplyType.Custom &&
-            string.Equals(pointGroup.UDPClassificationName, LegacyClassificationName, StringComparison.OrdinalIgnoreCase))
-        {
-            pointGroup.UseNoneClassification();
-        }
-
-        if (!civilDocument.PointUDPClassifications.Contains(LegacyClassificationName))
-        {
-            return;
-        }
-
-        UDPClassification legacyClassification = civilDocument.PointUDPClassifications[LegacyClassificationName];
-        if (legacyClassification.UDPs.Count > 0)
-        {
-            return;
-        }
-
-        try
-        {
-            civilDocument.PointUDPClassifications.Remove(legacyClassification);
-        }
-        catch (InvalidOperationException)
-        {
-            // The old empty classification may still be assigned to another point group.
-        }
     }
 
     private static void AddSkippedDetail(List<string> skippedDetails, uint pointNumber, string reason)
