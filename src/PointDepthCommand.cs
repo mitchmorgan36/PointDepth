@@ -8,6 +8,7 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.Civil.ApplicationServices;
 using Autodesk.Civil.DatabaseServices;
+using Autodesk.Civil.DatabaseServices.Styles;
 using AcadApplication = Autodesk.AutoCAD.ApplicationServices.Application;
 using CivSurface = Autodesk.Civil.DatabaseServices.Surface;
 
@@ -31,6 +32,9 @@ public sealed class PointDepthCommand
     private const string CommandName = "POINTDEPTH";
     private const string DepthUdpClassificationName = "PointDepth";
     private const string UdpName = "Depth_To_Surface";
+    private const string DepthInchesExpressionName = "Depth_To_Surface-INCHES";
+    private const string DepthInchesExpressionFormula = "{Depth_To_Surface}*12.0";
+    private const string DepthInchesExpressionDescription = "PointDepth label expression that converts Depth_To_Surface from feet to inches.";
     private const string PositivePointGroupName = "PointDepth_Positive";
     private const string NegativePointGroupName = "PointDepth_Negative";
     private const int MaxSkippedDetails = 12;
@@ -85,6 +89,16 @@ public sealed class PointDepthCommand
                 }
 
                 UDPDouble depthUdp = GetOrCreateDepthUdp(civilDocument);
+                DepthInchesExpressionStatus depthInchesExpressionStatus = DepthInchesExpressionStatus.Unchanged;
+                string? depthInchesExpressionWarning = null;
+                try
+                {
+                    depthInchesExpressionStatus = GetOrCreateDepthInchesExpression(civilDocument);
+                }
+                catch (System.Exception ex)
+                {
+                    depthInchesExpressionWarning = ex.Message;
+                }
 
                 uint[] pointNumbers = pointGroup.GetPointNumbers();
                 if (pointNumbers.Length == 0)
@@ -150,6 +164,17 @@ public sealed class PointDepthCommand
                         UdpName,
                         pointGroupName,
                         surfaceName));
+                if (depthInchesExpressionStatus == DepthInchesExpressionStatus.Created)
+                {
+                    editor.WriteMessage(
+                        $"\nPointDepth created point label expression \"{DepthInchesExpressionName}\" using {DepthInchesExpressionFormula}.");
+                }
+                else if (!string.IsNullOrWhiteSpace(depthInchesExpressionWarning))
+                {
+                    editor.WriteMessage(
+                        $"\nPointDepth wrote depth values, but could not create point label expression \"{DepthInchesExpressionName}\": {depthInchesExpressionWarning}");
+                }
+
                 if (signCounts is not null)
                 {
                     editor.WriteMessage(
@@ -373,6 +398,30 @@ public sealed class PointDepthCommand
         return civilDocument.PointUDPClassifications.Add(DepthUdpClassificationName);
     }
 
+    private static DepthInchesExpressionStatus GetOrCreateDepthInchesExpression(CivilDocument civilDocument)
+    {
+        ExpressionCollection expressions = civilDocument
+            .Styles
+            .LabelStyles
+            .PointLabelStyles
+            .LabelStyles
+            .Expressions;
+
+        foreach (Expression expression in expressions)
+        {
+            if (string.Equals(expression.Name, DepthInchesExpressionName, StringComparison.OrdinalIgnoreCase))
+            {
+                return DepthInchesExpressionStatus.Unchanged;
+            }
+        }
+
+        expressions.Add(
+            DepthInchesExpressionName,
+            DepthInchesExpressionDescription,
+            DepthInchesExpressionFormula);
+        return DepthInchesExpressionStatus.Created;
+    }
+
     private static PointGroupSignCounts CreateOrUpdateDepthSignPointGroups(
         Database database,
         CivilDocument civilDocument,
@@ -483,6 +532,12 @@ public sealed class PointDepthCommand
     private sealed record PointGroupChoice(int Number, string Name, uint PointCount, ObjectId ObjectId);
 
     private sealed record SurfaceChoice(int Number, string Name, string SurfaceType, ObjectId ObjectId);
+
+    private enum DepthInchesExpressionStatus
+    {
+        Unchanged,
+        Created
+    }
 
     private sealed class DepthSignPointNumbers
     {
