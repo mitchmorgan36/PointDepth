@@ -18,7 +18,7 @@ The sign convention is:
 
 PointDepth creates a numeric `Depth_To_Surface` UDP under a `PointDepth` user-defined property classification when needed. Existing numeric `Depth_To_Surface` UDPs are reused. After writing depths, PointDepth creates or updates two sign point groups:
 
-PointDepth also creates a point label expression named `Depth_To_Surface-INCHES` when missing. The expression is `{Depth_To_Surface}*12.0`, so labels can display the depth in inches without storing a second UDP. If an expression with that name already exists, PointDepth leaves it unchanged.
+PointDepth also creates a point label expression named `Depth_To_Surface-INCHES` when missing. The expression is `Depth_To_Surface*12.0`, so labels can display the depth in inches without storing a second UDP. If an expression with that name already exists, PointDepth leaves it unchanged.
 
 - `PointDepth_Positive`: points where `Depth_To_Surface > 0`
 - `PointDepth_Negative`: points where `Depth_To_Surface < 0`

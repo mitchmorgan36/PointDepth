@@ -33,7 +33,7 @@ public sealed class PointDepthCommand
     private const string DepthUdpClassificationName = "PointDepth";
     private const string UdpName = "Depth_To_Surface";
     private const string DepthInchesExpressionName = "Depth_To_Surface-INCHES";
-    private const string DepthInchesExpressionFormula = "{Depth_To_Surface}*12.0";
+    private const string DepthInchesExpressionFormula = "Depth_To_Surface*12.0";
     private const string DepthInchesExpressionDescription = "PointDepth label expression that converts Depth_To_Surface from feet to inches.";
     private const string PositivePointGroupName = "PointDepth_Positive";
     private const string NegativePointGroupName = "PointDepth_Negative";
