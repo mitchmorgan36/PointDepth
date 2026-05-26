@@ -241,6 +241,11 @@ public sealed class PointDepthCommand
         foreach (ObjectId pointGroupId in civilDocument.PointGroups)
         {
             PointGroup pointGroup = (PointGroup)transaction.GetObject(pointGroupId, OpenMode.ForRead);
+            if (IsGeneratedDepthSignPointGroup(pointGroup.Name))
+            {
+                continue;
+            }
+
             pointGroups.Add(new PointGroupChoice(number, pointGroup.Name, pointGroup.PointsCount, pointGroupId));
             number++;
         }
@@ -485,6 +490,12 @@ public sealed class PointDepthCommand
             : civilDocument.PointGroups.Add(pointGroupName);
 
         return (PointGroup)transaction.GetObject(pointGroupId, OpenMode.ForWrite);
+    }
+
+    private static bool IsGeneratedDepthSignPointGroup(string pointGroupName)
+    {
+        return string.Equals(pointGroupName, PositivePointGroupName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(pointGroupName, NegativePointGroupName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void UseCustomUdpClassification(PointGroup pointGroup, string udpClassificationName)

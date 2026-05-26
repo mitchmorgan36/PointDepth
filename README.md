@@ -16,6 +16,8 @@ The sign convention is:
 4. Select an existing point group from the numbered command-line prompt.
 5. Select the existing surface to compare against by typing its number or picking it in the drawing.
 
+The source point group prompt excludes PointDepth's generated output groups so reruns do not accidentally process only a previous positive or negative subset.
+
 PointDepth creates a numeric `Depth_To_Surface` UDP under a `PointDepth` user-defined property classification when needed. Existing numeric `Depth_To_Surface` UDPs are reused. After writing depths, PointDepth creates or updates two sign point groups:
 
 PointDepth also creates a point label expression named `Depth_To_Surface-INCHES` when missing. The expression is `Depth_To_Surface*12.0`, so labels can display the depth in inches without storing a second UDP. If an expression with that name already exists, PointDepth leaves it unchanged.
